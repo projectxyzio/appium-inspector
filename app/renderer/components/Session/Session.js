@@ -21,7 +21,7 @@ export default class Session extends Component {
 
   componentDidMount () {
     const {setLocalServerParams, getSavedSessions, setSavedServerParams, setStateFromAppiumFile,
-           setVisibleProviders, getRunningSessions, bindWindowClose, initFromQueryString, saveFile, switchTabs} = this.props;
+           getRunningSessions, bindWindowClose, initFromQueryString, saveFile, switchTabs} = this.props;
     (async () => {
       try {
         bindWindowClose();
@@ -29,7 +29,6 @@ export default class Session extends Component {
         await getSavedSessions();
         await setSavedServerParams();
         await setLocalServerParams();
-        await setVisibleProviders();
         getRunningSessions();
         await initFromQueryString();
         await setStateFromAppiumFile();
@@ -86,8 +85,7 @@ export default class Session extends Component {
                   return <TabPane key={providerName} tab={<div>{provider.tabhead()}</div>}>
                     {provider.tab(this.props)}
                   </TabPane>;
-                }),
-                <TabPane tab={<span className='addCloudProviderTab'>{ t('Select Cloud Providers') }</span>} key={ADD_CLOUD_PROVIDER}></TabPane>
+                })
               ]}
             </Tabs>
             <AdvancedServerParams {...this.props} />
