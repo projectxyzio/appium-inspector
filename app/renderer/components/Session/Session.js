@@ -1,4 +1,4 @@
-import { shell } from '../../polyfills';
+import { shell, ipcRenderer } from '../../polyfills';
 import React, { Component } from 'react';
 import _ from 'lodash';
 import CapabilityEditor from './CapabilityEditor';
@@ -20,8 +20,8 @@ const ADD_CLOUD_PROVIDER = 'addCloudProvider';
 export default class Session extends Component {
 
   componentDidMount () {
-    const {setLocalServerParams, getSavedSessions, setSavedServerParams,
-           getRunningSessions, bindWindowClose, initFromQueryString} = this.props;
+    const {setLocalServerParams, getSavedSessions, setSavedServerParams, setStateFromAppiumFile,
+           getRunningSessions, bindWindowClose, initFromQueryString, saveFile} = this.props;
     (async () => {
       try {
         bindWindowClose();
@@ -30,6 +30,13 @@ export default class Session extends Component {
         await setLocalServerParams();
         getRunningSessions();
         await initFromQueryString();
+        await setStateFromAppiumFile();
+        ipcRenderer.on('open-file', (evt, filePath) => {
+          setStateFromAppiumFile(filePath);
+        });
+        ipcRenderer.on('save-file', (evt, filePath) => {
+          saveFile(filePath);
+        });
       } catch (e) {
         console.error(e); // eslint-disable-line no-console
       }
@@ -52,7 +59,7 @@ export default class Session extends Component {
 
   render () {
     const {newSessionBegan, savedSessions, tabKey, switchTabs,
-           serverType,
+           serverType, server,
            requestSaveAsModal, newSession, caps, capsUUID, saveSession,
            visibleProviders = [],
            isCapsDirty, sessionLoading, attachSessId, t} = this.props;
@@ -107,7 +114,7 @@ export default class Session extends Component {
                 {t('desiredCapabilitiesDocumentation')}
               </a>
             </div>
-            { (!isAttaching && capsUUID) && <Button onClick={() => saveSession(caps, {uuid: capsUUID})} disabled={!isCapsDirty}>{t('Save')}</Button> }
+            { (!isAttaching && capsUUID) && <Button onClick={() => saveSession(server, serverType, caps, {uuid: capsUUID})} disabled={!isCapsDirty}>{t('Save')}</Button> }
             {!isAttaching && <Button onClick={requestSaveAsModal}>{t('saveAs')}</Button>}
             {!isAttaching && <Button type={BUTTON.PRIMARY} id='btnStartSession'
               onClick={() => newSession(caps)} className={SessionStyles['start-session-button']}>{t('startSession')}</Button>

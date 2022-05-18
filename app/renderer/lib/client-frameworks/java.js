@@ -113,10 +113,10 @@ ${this.indent(code, 4)}
 
   codeFor_swipe (varNameIgnore, varIndexIgnore, x1, y1, x2, y2) {
     return `(new TouchAction(driver))
-  .press({x: ${x1}, y: ${y1}})
-  .moveTo({x: ${x2}: y: ${y2}})
+  .press(PointOption.point(${x1}, ${y1}}))
+  .moveTo(PointOption.point(${x2}, ${y2}}))
   .release()
-  .perform()
+  .perform();
   `;
   }
 
@@ -338,7 +338,7 @@ ${this.indent(code, 4)}
 
   // Web
 
-  codeFor_navigateTo (url) {
+  codeFor_navigateTo (varNameIgnore, varIndexIgnore, url) {
     return `driver.get("${url}");`;
   }
 
@@ -364,7 +364,7 @@ ${this.indent(code, 4)}
     return `driver.getContextHandles();`;
   }
 
-  codeFor_switchContexts (name) {
+  codeFor_switchContext (varNameIgnore, varIndexIgnore, name) {
     return `driver.context("${name}");`;
   }
 }

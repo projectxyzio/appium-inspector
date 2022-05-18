@@ -108,11 +108,12 @@
   "logsNotAvailableError": "Ошибка: журналы недоступны",
   "findElementFailure": "Не удалось найти элемент для '{{methodName}}'. Пожалуйста, обновите страницу и повторите попытку.",
   "Could not start session": "Не удалось запустить сессию",
-  "couldNotConnect": "Could not connect to server; are you sure it's running? If you are using the browser version, also ensure your Appium server has been started with --allow-cors.",
+  "couldNotConnect": "Не удалось подключиться к серверу; вы уверены, что он запущен? Если вы используете браузерную версию, также убедитесь, что сервер Appium запущен с параметром --allow-cors.",
   "sauceCredentialsRequired": "Требуется имя пользователя и ключ доступа к Sauce!",
   "testingbotCredentialsRequired": "Требуется ключ и секрет API TestingBot!",
   "Perfecto SecurityToken is required": "Требуется SecurityToken Perfecto",
   "browserstackCredentialsRequired": "Требуется имя пользователя и ключ доступа Browserstack!",
+  "lambdatestCredentialsRequired": "Lambdatest username and access key are required!",
   "bitbarCredentialsRequired": "Требуется ключ API Bitbar!",
   "kobitonCredentialsRequired": "Требуется имя пользователя и ключ API KOBITON!",
   "experitestAccessKeyURLRequired": "Требуются URL и ключ доступа к Experitest",
@@ -241,6 +242,8 @@
   "Remote Path": "Удаленный путь",
   "BrowserStack Username": "Имя пользователя BrowserStack",
   "BrowserStack Access Key": "Ключ доступа BrowserStack",
+  "LambdaTest Username": "LambdaTest Username",
+  "LambdaTest Access Key": "LambdaTest Access Key",
   "Bitbar API Key": "Ключ API Bitbar",
   "willUseCurrentlyRunningServer": "Будет использован текущий сервер Appium Desktop",
   "Name": "Название",
@@ -340,5 +343,5 @@
   "executeScriptCommand": "Script to execute",
   "appPathOrUrl": "Path or URL for app",
   "fileContentString": "Файл в виде строки Base64",
-  "inspectorMoved": "The Inspector is now released as a separate app. Please visit {{url}}"
+  "inspectorMoved": "Инспектор выпущен как отдельное приложение. Пожалуйста, посетите {{url}}"
 }

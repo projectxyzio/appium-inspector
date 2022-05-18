@@ -6,7 +6,7 @@ import { xmlToJSON } from '../util';
 import frameworks from '../lib/client-frameworks';
 import { getSetting, setSetting, SAVED_FRAMEWORK } from '../../shared/settings';
 import i18n from '../../configs/i18next.config.renderer';
-import AppiumClient from '../lib/appium-client';
+import AppiumClient, { NATIVE_APP } from '../lib/appium-client';
 import { notification } from 'antd';
 
 export const SET_SESSION_DETAILS = 'SET_SESSION_DETAILS';
@@ -74,6 +74,8 @@ export const SET_USER_WAIT_TIMEOUT = 'SET_USER_WAIT_TIMEOUT';
 export const SET_LAST_ACTIVE_MOMENT = 'SET_LAST_ACTIVE_MOMENT';
 
 export const SET_VISIBLE_COMMAND_RESULT = 'SET_VISIBLE_COMMAND_RESULT';
+
+export const SET_AWAITING_MJPEG_STREAM = 'SET_AWAITING_MJPEG_STREAM';
 
 const KEEP_ALIVE_PING_INTERVAL = 5 * 1000;
 const NO_NEW_COMMAND_LIMIT = 24 * 60 * 60 * 1000; // Set timeout to 24 hours
@@ -158,8 +160,8 @@ export function applyClientMethod (params) {
     try {
       dispatch({type: METHOD_CALL_REQUESTED});
       const callAction = callClientMethod(params);
-      const {contexts, contextsError, currentContext, currentContextError,
-             source, screenshot, windowSize, result, sourceError,
+      const {contexts, contextsError, commandRes, currentContext, currentContextError,
+             source, screenshot, windowSize, sourceError,
              screenshotError, windowSizeError, variableName,
              variableIndex, strategy, selector} = await callAction(dispatch, getState);
 
@@ -177,7 +179,7 @@ export function applyClientMethod (params) {
       }
       dispatch({type: METHOD_CALL_DONE});
 
-      if (source && screenshot) {
+      if (source) {
         dispatch({
           type: SET_SOURCE_AND_SCREENSHOT,
           contexts,
@@ -193,7 +195,8 @@ export function applyClientMethod (params) {
           windowSizeError,
         });
       }
-      return result;
+      window.dispatchEvent(new Event('resize'));
+      return commandRes;
     } catch (error) {
       console.log(error); // eslint-disable-line no-console
       let methodName = params.methodName === 'click' ? 'tap' : params.methodName;
@@ -312,9 +315,9 @@ export function toggleShowBoilerplate () {
   };
 }
 
-export function setSessionDetails (driver, sessionDetails) {
+export function setSessionDetails ({driver, sessionDetails, mode, mjpegScreenshotUrl}) {
   return (dispatch) => {
-    dispatch({type: SET_SESSION_DETAILS, driver, sessionDetails});
+    dispatch({type: SET_SESSION_DETAILS, driver, sessionDetails, mode, mjpegScreenshotUrl});
   };
 }
 
@@ -411,17 +414,17 @@ export function setLocatorTestElement (elementId) {
     if (elementId) {
       try {
         const action = callClientMethod({
+          elementId,
           methodName: 'getRect',
-          args: [elementId],
           skipRefresh: true,
           skipRecord: true,
           ignoreResult: true
         });
-        const rect = await action(dispatch, getState);
+        const { commandRes } = await action(dispatch, getState);
         dispatch({
           type: SET_SEARCHED_FOR_ELEMENT_BOUNDS,
-          location: {x: rect.x, y: rect.y},
-          size: {width: rect.width, height: rect.height},
+          location: {x: commandRes.x, y: commandRes.y},
+          size: {width: commandRes.width, height: commandRes.height},
         });
       } catch (ign) { }
     }
@@ -447,6 +450,10 @@ export function selectAppMode (mode) {
     // if we're transitioning to hybrid mode, do a pre-emptive search for contexts
     if (appMode !== mode && mode === APP_MODE.WEB_HYBRID) {
       const action = applyClientMethod({methodName: 'getPageSource'});
+      await action(dispatch, getState);
+    }
+    if (appMode !== mode && mode === APP_MODE.NATIVE) {
+      const action = applyClientMethod({ methodName: 'switchContext', args: [NATIVE_APP] });
       await action(dispatch, getState);
     }
   };
@@ -585,12 +592,17 @@ export function keepSessionAlive () {
 
 export function callClientMethod (params) {
   return async (dispatch, getState) => {
-    console.log(`Calling client method with params:`); // eslint-disable-line no-console
-    console.log(params); // eslint-disable-line no-console
-    const {driver, appMode} = getState().inspector;
+    const {driver, appMode, mjpegScreenshotUrl} = getState().inspector;
     const {methodName, ignoreResult = true} = params;
     params.appMode = appMode;
 
+    // don't retrieve screenshot if we're already using the mjpeg stream
+    if (mjpegScreenshotUrl) {
+      params.skipScreenshot = true;
+    }
+
+    console.log(`Calling client method with params:`); // eslint-disable-line no-console
+    console.log(params); // eslint-disable-line no-console
     const action = keepSessionAlive();
     action(dispatch, getState);
     const client = AppiumClient.instance(driver);
@@ -619,5 +631,11 @@ export function callClientMethod (params) {
 export function setVisibleCommandResult (result, methodName) {
   return (dispatch) => {
     dispatch({type: SET_VISIBLE_COMMAND_RESULT, result, methodName});
+  };
+}
+
+export function setAwaitingMjpegStream (isAwaiting) {
+  return (dispatch) => {
+    dispatch({type: SET_AWAITING_MJPEG_STREAM, isAwaiting});
   };
 }

@@ -3,13 +3,17 @@ import { getSetting, setSetting, SAVED_SESSIONS, SERVER_ARGS, SESSION_SERVER_TYP
 import { v4 as UUID } from 'uuid';
 import { push } from 'connected-react-router';
 import { notification } from 'antd';
-import { includes, debounce, toPairs, union, without, keys, isUndefined } from 'lodash';
+import { includes, debounce, toPairs, union, without, keys, isUndefined, isPlainObject } from 'lodash';
 import { setSessionDetails, quitSession } from './Inspector';
 import i18n from '../../configs/i18next.config.renderer';
 import CloudProviders from '../components/Session/CloudProviders';
 import { Web2Driver } from 'web2driver';
 import { addVendorPrefixes } from '../util';
 import ky from 'ky/umd';
+import moment from 'moment';
+import { APP_MODE } from '../components/Inspector/shared';
+import { ipcRenderer, fs, util } from '../polyfills';
+import { getSaveableState } from '../../main/helpers';
 
 export const NEW_SESSION_REQUESTED = 'NEW_SESSION_REQUESTED';
 export const NEW_SESSION_BEGAN = 'NEW_SESSION_BEGAN';
@@ -23,7 +27,7 @@ export const SET_CAPABILITY_PARAM = 'SET_CAPABILITY_PARAM';
 export const ADD_CAPABILITY = 'ADD_CAPABILITY';
 export const REMOVE_CAPABILITY = 'REMOVE_CAPABILITY';
 export const SWITCHED_TABS = 'SWITCHED_TABS';
-export const SET_CAPS = 'SET_CAPS';
+export const SET_CAPS_AND_SERVER = 'SET_CAPS_AND_SERVER';
 export const SAVE_AS_MODAL_REQUESTED = 'SAVE_AS_MODAL_REQUESTED';
 export const HIDE_SAVE_AS_MODAL_REQUESTED = 'HIDE_SAVE_AS_MODAL_REQUESTED';
 export const SET_SAVE_AS_TEXT = 'SET_SAVE_AS_TEXT';
@@ -56,6 +60,7 @@ export const SET_PROVIDERS = 'SET_PROVIDERS';
 export const SET_ADD_VENDOR_PREFIXES = 'SET_ADD_VENDOR_PREFIXES';
 
 export const SET_STATE_FROM_URL = 'SET_STATE_FROM_URL';
+export const SET_STATE_FROM_SAVED = 'SET_STATE_FROM_SAVED';
 
 
 const CAPS_NEW_COMMAND = 'appium:newCommandTimeout';
@@ -64,7 +69,11 @@ const CAPS_NATIVE_WEB_SCREENSHOT = 'appium:nativeWebScreenshot';
 const CAPS_ENSURE_WEBVIEW_HAVE_PAGES = 'appium:ensureWebviewsHavePages';
 const CAPS_INCLUDE_SAFARI_IN_WEBVIEWS = 'appium:includeSafariInWebviews';
 
+const FILE_PATH_STORAGE_KEY = 'last_opened_file';
+
 const AUTO_START_URL_PARAM = '1'; // what should be passed in to ?autoStart= to turn it on
+
+const MJPEG_CAP = 'mjpegScreenshotUrl';
 
 // Multiple requests sometimes send a new session request
 // after establishing a session.
@@ -72,6 +81,9 @@ const AUTO_START_URL_PARAM = '1'; // what should be passed in to ?autoStart= to 
 // so let's set zero so far.
 // TODO: increase this retry when we get issues
 export const CONN_RETRIES = 0;
+
+// 1 hour default newCommandTimeout
+const NEW_COMMAND_TIMEOUT_SEC = 3600;
 
 let isFirstRun = true; // we only want to auto start a session on a first run
 
@@ -87,6 +99,8 @@ export const ServerTypes = serverTypes;
 export const DEFAULT_SERVER_PATH = '/';
 export const DEFAULT_SERVER_HOST = '127.0.0.1';
 export const DEFAULT_SERVER_PORT = 4723;
+
+const SAUCE_OPTIONS_CAP = 'sauce:options';
 
 const JSON_TYPES = ['object', 'number', 'boolean'];
 
@@ -143,11 +157,11 @@ export function showError (e, methodName, secs = 5) {
 }
 
 /**
- * Change the caps object and then go back to the new session tab
+ * Change the caps object, along with the server details and then go back to the new session tab
  */
-export function setCaps (caps, uuid) {
+export function setCapsAndServer (server, serverType, caps, uuid) {
   return (dispatch) => {
-    dispatch({type: SET_CAPS, caps, uuid});
+    dispatch({type: SET_CAPS_AND_SERVER, server, serverType, caps, uuid});
   };
 }
 
@@ -188,8 +202,9 @@ export function removeCapability (index) {
 }
 
 function _addVendorPrefixes (caps, dispatch, getState) {
+  const {server, serverType, capsUUID} = getState().session;
   const prefixedCaps = addVendorPrefixes(caps);
-  setCaps(prefixedCaps, getState().session.capsUUID)(dispatch);
+  setCapsAndServer(server, serverType, prefixedCaps, capsUUID)(dispatch);
   return prefixedCaps;
 }
 
@@ -247,6 +262,13 @@ export function newSession (caps, attachSessId = null) {
           return;
         }
         https = false;
+        if (!isPlainObject(desiredCapabilities[SAUCE_OPTIONS_CAP])) {
+          desiredCapabilities[SAUCE_OPTIONS_CAP] = {};
+        }
+        if (!desiredCapabilities[SAUCE_OPTIONS_CAP].name) {
+          const dateTime = moment().format('lll');
+          desiredCapabilities[SAUCE_OPTIONS_CAP].name = `Appium Desktop Session -- ${dateTime}`;
+        }
         break;
       case ServerTypes.headspin: {
         let headspinUrl;
@@ -297,6 +319,35 @@ export function newSession (caps, attachSessId = null) {
         }
         https = session.server.browserstack.ssl = (parseInt(port, 10) === 443);
         break;
+      case ServerTypes.lambdatest:
+        host = session.server.lambdatest.hostname = process.env.LAMBDATEST_HOST || 'mobile-hub.lambdatest.com';
+        port = session.server.lambdatest.port = process.env.LAMBDATEST_PORT || 443;
+        path = session.server.lambdatest.path = '/wd/hub';
+        username = session.server.lambdatest.username || process.env.LAMBDATEST_USERNAME;
+        if (desiredCapabilities.hasOwnProperty.call(desiredCapabilities, 'lt:options')) {
+          desiredCapabilities['lt:options'].source = 'appiumdesktop';
+          desiredCapabilities['lt:options'].isRealMobile = true;
+          if (session.server.advanced.useProxy) {
+            desiredCapabilities['lt:options'].proxyUrl = isUndefined(session.server.advanced.proxy) ? '' : session.server.advanced.proxy;
+          }
+        } else {
+          desiredCapabilities['lambdatest:source'] = 'appiumdesktop';
+          desiredCapabilities['lambdatest:isRealMobile'] = true;
+          if (session.server.advanced.useProxy) {
+            desiredCapabilities['lambdatest:proxyUrl'] = isUndefined(session.server.advanced.proxy) ? '' : session.server.advanced.proxy;
+          }
+        }
+        accessKey = session.server.lambdatest.accessKey || process.env.LAMBDATEST_ACCESS_KEY;
+        if (!username || !accessKey) {
+          notification.error({
+            message: i18n.t('Error'),
+            description: i18n.t('lambdatestCredentialsRequired'),
+            duration: 4,
+          });
+          return;
+        }
+        https = session.server.lambdatest.ssl = parseInt(port, 10) === 443;
+        break;
       case ServerTypes.bitbar:
         host = process.env.BITBAR_HOST || 'appium.bitbar.com';
         port = session.server.bitbar.port = 443;
@@ -310,8 +361,10 @@ export function newSession (caps, attachSessId = null) {
           });
           return;
         }
-        desiredCapabilities.testdroid_source = 'appiumdesktop';
-        desiredCapabilities.testdroid_apiKey = accessKey;
+        desiredCapabilities['bitbar:options'] = {
+          source: 'appiumdesktop',
+          apiKey: accessKey,
+        };
         https = session.server.bitbar.ssl = true;
         break;
       case ServerTypes.kobiton:
@@ -388,8 +441,8 @@ export function newSession (caps, attachSessId = null) {
 
         host = session.server.experitest.hostname = experitestUrl.hostname;
         path = session.server.experitest.path = '/wd/hub';
-        port = session.server.experitest.port = experitestUrl.port;
         https = session.server.experitest.ssl = experitestUrl.protocol === 'https:';
+        port = session.server.experitest.port = experitestUrl.port === '' ? (https ? 443 : 80) : experitestUrl.port;
         break;
       } case ServerTypes.roboticmobi: {
         host = 'api.robotic.mobi';
@@ -435,9 +488,11 @@ export function newSession (caps, attachSessId = null) {
       serverOpts.key = accessKey;
     }
 
-    // If a newCommandTimeout wasn't provided, set it to 0 so that sessions don't close on users
+    // If a newCommandTimeout wasn't provided, set it to 60 * 60 so that sessions don't close on users in short term.
+    // I saw sometimes infinit session timeout was not so good for cloud providers.
+    // So, let me define this value as NEW_COMMAND_TIMEOUT_SEC by default.
     if (isUndefined(desiredCapabilities[CAPS_NEW_COMMAND])) {
-      desiredCapabilities[CAPS_NEW_COMMAND] = 0;
+      desiredCapabilities[CAPS_NEW_COMMAND] = NEW_COMMAND_TIMEOUT_SEC;
     }
 
     // If someone didn't specify connectHardwareKeyboard, set it to true by
@@ -445,6 +500,8 @@ export function newSession (caps, attachSessId = null) {
     if (isUndefined(desiredCapabilities[CAPS_CONNECT_HARDWARE_KEYBOARD])) {
       desiredCapabilities[CAPS_CONNECT_HARDWARE_KEYBOARD] = true;
     }
+
+    serverOpts.logLevel = process.env.NODE_ENV === 'development' ? 'info' : 'warn';
 
     let driver = null;
     try {
@@ -475,23 +532,36 @@ export function newSession (caps, attachSessId = null) {
     // we want to keep the process equal to prevent complexity so we launch a default url here to make
     // sure we don't start with an empty page which will not show proper HTML in the inspector
     const {browserName = ''} = desiredCapabilities;
+    let mode = APP_MODE.NATIVE;
 
     if (browserName.trim() !== '') {
       try {
+        mode = APP_MODE.WEB_HYBRID;
         await driver.navigateTo('http://appium.io/docs/en/about-appium/intro/');
       } catch (ign) {}
     }
 
+
+    const mjpegScreenshotUrl = desiredCapabilities[`appium:${MJPEG_CAP}`] ||
+      desiredCapabilities[MJPEG_CAP] ||
+      null;
+
+
     // pass some state to the inspector that it needs to build recorder
     // code boilerplate
-    const action = setSessionDetails(driver, {
-      desiredCapabilities,
-      host,
-      port,
-      path,
-      username,
-      accessKey,
-      https,
+    const action = setSessionDetails({
+      driver,
+      sessionDetails: {
+        desiredCapabilities,
+        host,
+        port,
+        path,
+        username,
+        accessKey,
+        https,
+      },
+      mode,
+      mjpegScreenshotUrl,
     });
     action(dispatch);
     dispatch(push('/inspector'));
@@ -500,13 +570,13 @@ export function newSession (caps, attachSessId = null) {
 
 
 /**
- * Saves the caps
+ * Saves the caps and server details
  */
-export function saveSession (caps, params) {
+export function saveSession (server, serverType, caps, params) {
   return async (dispatch) => {
     let {name, uuid} = params;
     dispatch({type: SAVE_SESSION_REQUESTED});
-    let savedSessions = await getSetting(SAVED_SESSIONS);
+    let savedSessions = await getSetting(SAVED_SESSIONS) || [];
     if (!uuid) {
 
       // If it's a new session, add it to the list
@@ -516,6 +586,8 @@ export function saveSession (caps, params) {
         name,
         uuid,
         caps,
+        server,
+        serverType,
       };
       savedSessions.push(newSavedSession);
     } else {
@@ -524,13 +596,15 @@ export function saveSession (caps, params) {
       for (let session of savedSessions) {
         if (session.uuid === uuid) {
           session.caps = caps;
+          session.server = server;
+          session.serverType = serverType;
         }
       }
     }
     await setSetting(SAVED_SESSIONS, savedSessions);
     const action = getSavedSessions();
     await action(dispatch);
-    dispatch({type: SET_CAPS, caps, uuid});
+    dispatch({type: SET_CAPS_AND_SERVER, server, serverType, caps, uuid});
     dispatch({type: SAVE_SESSION_DONE});
   };
 }
@@ -671,6 +745,52 @@ export function setSavedServerParams () {
         serverType = ServerTypes.remote;
       }
       dispatch({type: SET_SERVER, server, serverType});
+    }
+  };
+}
+
+export function setStateFromAppiumFile (newFilepath = null) {
+  return async (dispatch) => {
+    // no "fs" means we're not in an Electron renderer so do nothing
+    if (!fs) {
+      return;
+    }
+    try {
+      let filePath = newFilepath;
+      if (!newFilepath) {
+        const lastArg = process.argv[process.argv.length - 1];
+        if (!lastArg.startsWith('filename=')) {
+          return;
+        }
+        filePath = lastArg.split('=')[1];
+      }
+      if (sessionStorage.getItem(FILE_PATH_STORAGE_KEY) === filePath) {
+        // file was opened already, do nothing
+        return;
+      }
+      const appiumJson = JSON.parse(await util.promisify(fs.readFile)(filePath, 'utf8'));
+      sessionStorage.setItem(FILE_PATH_STORAGE_KEY, filePath);
+      dispatch({type: SET_STATE_FROM_SAVED, state: appiumJson, filePath});
+    } catch (e) {
+      notification.error({
+        message: `Cannot open file '${newFilepath}'.\n ${e.message}\n ${e.stack}`,
+      });
+    }
+  };
+}
+
+export function saveFile (filepath) {
+  return async (dispatch, getState) => {
+    const state = getState().session;
+    const filePath = filepath || state.filePath;
+    if (filePath) {
+      const appiumFileInfo = getSaveableState(state);
+      await util.promisify(fs.writeFile)(filePath, JSON.stringify(appiumFileInfo, null, 2), 'utf8');
+      sessionStorage.setItem(FILE_PATH_STORAGE_KEY, filePath);
+    } else {
+      // no filepath provided, tell the main renderer to open the save file dialog and
+      // ask the user to save file to a provided path
+      ipcRenderer.send('save-file-as');
     }
   };
 }

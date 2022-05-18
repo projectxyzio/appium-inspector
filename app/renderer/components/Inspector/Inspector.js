@@ -19,6 +19,7 @@ import {
   PauseOutlined,
   SearchOutlined,
   CopyOutlined,
+  DownloadOutlined,
   CloseOutlined,
   FileTextOutlined,
   TagOutlined,
@@ -38,15 +39,47 @@ const MIN_WIDTH = 1080;
 const MIN_HEIGHT = 570;
 const MAX_SCREENSHOT_WIDTH = 500;
 
+const MJPEG_STREAM_CHECK_INTERVAL = 1000;
+
+function downloadXML (sourceXML) {
+  let element = document.createElement('a');
+  element.setAttribute('href', 'data:application/xml;charset=utf-8,' + encodeURIComponent(sourceXML));
+  element.setAttribute('download', 'source.xml');
+
+  element.style.display = 'none';
+  document.body.appendChild(element);
+
+  element.click();
+
+  document.body.removeChild(element);
+}
+
 export default class Inspector extends Component {
 
   constructor () {
     super();
     this.didInitialResize = false;
-    this.state = {};
+    this.state = {
+      scaleRatio: 1,
+    };
     this.screenAndSourceEl = null;
     this.lastScreenshot = null;
+    this.screenshotEl = null;
     this.updateSourceTreeWidth = debounce(this.updateSourceTreeWidth.bind(this), 50);
+    this.updateScaleRatio = debounce(this.updateScaleRatio.bind(this), 500);
+    this.mjpegStreamCheckInterval = null;
+  }
+
+  /**
+   * Calculates the ratio that the image is being scaled by
+   */
+  updateScaleRatio () {
+    const screenshotImg = this.screenshotEl.querySelector('img');
+
+    // now update scale ratio
+    this.setState({
+      scaleRatio: (this.props.windowSize.width / screenshotImg.offsetWidth)
+    });
   }
 
   updateSourceTreeWidth () {
@@ -68,15 +101,17 @@ export default class Inspector extends Component {
     const imgRect = img.getBoundingClientRect();
     const screenshotRect = screenshotBox.getBoundingClientRect();
     screenshotBox.style.flexBasis = `${imgRect.width}px`;
-    if (imgRect.width < screenshotRect.width) {
-      screenshotBox.style.maxWidth = `${imgRect.width}px`;
-    } else if (imgRect.height < screenshotRect.height) {
+    if (imgRect.height < screenshotRect.height) {
       // get what the img width would be if it fills screenshot box height
       const attemptedWidth = (screenshotRect.height / imgRect.height) * imgRect.width;
       screenshotBox.style.maxWidth = attemptedWidth > MAX_SCREENSHOT_WIDTH ?
         `${MAX_SCREENSHOT_WIDTH}px` :
         `${attemptedWidth}px`;
+    } else if (imgRect.width < screenshotRect.width) {
+      screenshotBox.style.maxWidth = `${imgRect.width}px`;
     }
+
+    this.updateScaleRatio();
   }
 
   componentDidMount () {
@@ -94,6 +129,28 @@ export default class Inspector extends Component {
     this.props.getSavedActionFramework();
     this.props.runKeepAliveLoop();
     window.addEventListener('resize', this.updateSourceTreeWidth);
+
+    if (this.props.mjpegScreenshotUrl) {
+      this.mjpegStreamCheckInterval = setInterval(this.checkMjpegStream.bind(this),
+        MJPEG_STREAM_CHECK_INTERVAL);
+    }
+  }
+
+  async checkMjpegStream () {
+    const {mjpegScreenshotUrl, isAwaitingMjpegStream, setAwaitingMjpegStream} = this.props;
+    const img = new Image();
+    img.src = mjpegScreenshotUrl;
+    let imgReady = false;
+    try {
+      await img.decode();
+      imgReady = true;
+    } catch (ign) {}
+    if (imgReady && isAwaitingMjpegStream) {
+      setAwaitingMjpegStream(false);
+      this.updateSourceTreeWidth();
+    } else if (!imgReady && !isAwaitingMjpegStream) {
+      setAwaitingMjpegStream(true);
+    }
   }
 
   componentDidUpdate () {
@@ -103,6 +160,13 @@ export default class Inspector extends Component {
     if (screenshot !== this.lastScreenshot) {
       this.updateSourceTreeWidth();
       this.lastScreenshot = screenshot;
+    }
+  }
+
+  componentWillUnmount () {
+    if (this.mjpegStreamCheckInterval) {
+      clearInterval(this.mjpegStreamCheckInterval);
+      this.mjpegStreamCheckInterval = null;
     }
   }
 
@@ -118,14 +182,18 @@ export default class Inspector extends Component {
            pauseRecording, showLocatorTestModal, appMode,
            screenshotInteractionMode, isFindingElementsTimes, visibleCommandMethod,
            selectedInteractionMode, selectInteractionMode, selectAppMode, setVisibleCommandResult,
-           showKeepAlivePrompt, keepSessionAlive, sourceXML, t, visibleCommandResult} = this.props;
+           showKeepAlivePrompt, keepSessionAlive, sourceXML, t, visibleCommandResult,
+           mjpegScreenshotUrl, isAwaitingMjpegStream} = this.props;
     const {path} = selectedElement;
 
+    const showScreenshot = ((screenshot && !screenshotError) ||
+                            (mjpegScreenshotUrl && !isAwaitingMjpegStream));
+
     let main = <div className={InspectorStyles['inspector-main']} ref={(el) => {this.screenAndSourceEl = el;}}>
-      <div id='screenshotContainer' className={InspectorStyles['screenshot-container']}>
-        {screenshot && <Screenshot {...this.props} />}
+      <div id='screenshotContainer' className={InspectorStyles['screenshot-container']} ref={(el) => {this.screenshotEl = el;}}>
+        {showScreenshot && <Screenshot {...this.props} scaleRatio={this.state.scaleRatio}/>}
         {screenshotError && t('couldNotObtainScreenshot', {screenshotError})}
-        {!screenshot && !screenshotError &&
+        {!showScreenshot &&
           <Spin size="large" spinning={true}>
             <div className={InspectorStyles.screenshotBox} />
           </Spin>
@@ -141,7 +209,17 @@ export default class Inspector extends Component {
           <TabPane tab={t('Source')} key={INTERACTION_MODE.SOURCE}>
             <div className='action-row'>
               <div className='action-col'>
-                <Card title={<span><FileTextOutlined /> {t('App Source')}</span>}>
+                <Card title={<span><FileTextOutlined /> {t('App Source')} </span>}
+                  extra={
+                    <span>
+                      <Tooltip title={t('Copy XML Source to Clipboard')}>
+                        <Button type='text' id='btnSourceXML' icon={<CopyOutlined/>} onClick={() => clipboard.writeText(sourceXML)} />
+                      </Tooltip>
+                      <Tooltip title={t('Download Source as .XML File')}>
+                        <Button type='text' id='btnDownloadSourceXML' icon={<DownloadOutlined/>} onClick={() => downloadXML(sourceXML)}/>
+                      </Tooltip>
+                    </span>
+                  }>
                   <Source {...this.props} />
                 </Card>
               </div>
@@ -220,9 +298,6 @@ export default class Inspector extends Component {
       }
       <Tooltip title={t('Search for element')}>
         <Button id='searchForElement' icon={<SearchOutlined/>} onClick={showLocatorTestModal}/>
-      </Tooltip>
-      <Tooltip title={t('Copy XML Source to Clipboard')}>
-        <Button id='btnSourceXML' icon={<CopyOutlined/>} onClick={() => clipboard.writeText(sourceXML)}/>
       </Tooltip>
       <Tooltip title={t('quitSessionAndClose')}>
         <Button id='btnClose' icon={<CloseOutlined/>} onClick={() => quitSession()}/>
