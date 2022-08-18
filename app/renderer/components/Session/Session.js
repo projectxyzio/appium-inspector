@@ -1,4 +1,4 @@
-import { shell } from '../../polyfills';
+import { shell, ipcRenderer } from '../../polyfills';
 import React, { Component } from 'react';
 import _ from 'lodash';
 import CapabilityEditor from './CapabilityEditor';
@@ -20,8 +20,8 @@ const ADD_CLOUD_PROVIDER = 'addCloudProvider';
 export default class Session extends Component {
 
   componentDidMount () {
-    const {setLocalServerParams, getSavedSessions, setSavedServerParams,
-           getRunningSessions, bindWindowClose, initFromQueryString} = this.props;
+    const {setLocalServerParams, getSavedSessions, setSavedServerParams, setStateFromAppiumFile,
+           getRunningSessions, bindWindowClose, initFromQueryString, saveFile} = this.props;
     (async () => {
       try {
         bindWindowClose();
@@ -30,6 +30,13 @@ export default class Session extends Component {
         await setLocalServerParams();
         getRunningSessions();
         await initFromQueryString();
+        await setStateFromAppiumFile();
+        ipcRenderer.on('open-file', (evt, filePath) => {
+          setStateFromAppiumFile(filePath);
+        });
+        ipcRenderer.on('save-file', (evt, filePath) => {
+          saveFile(filePath);
+        });
       } catch (e) {
         console.error(e); // eslint-disable-line no-console
       }
