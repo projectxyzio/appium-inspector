@@ -6,16 +6,6 @@ name: Commit Validation
 on:
   workflow_dispatch:
   push:
-    branches: [main]
-    paths-ignore:
-      - '.github/ISSUE_TEMPLATE/**'
-      - 'app/common/public/locales/**'
-      - 'docs/**'
-      - 'sample-session-files/**'
-      - '.gitignore'
-      - 'LICENSE'
-      - 'README.md'
-      - 'renovate.json'
 
 jobs:
   build:
