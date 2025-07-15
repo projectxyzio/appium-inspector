@@ -17,7 +17,6 @@ import AdvancedServerParams from './AdvancedServerParams.jsx';
 import AttachToSession from './AttachToSession.jsx';
 import CapabilityEditor from './CapabilityEditor.jsx';
 import CloudProviders from './CloudProviders.jsx';
-import CloudProviderSelector from './CloudProviderSelector.jsx';
 import SavedSessions from './SavedSessions.jsx';
 import ServerTabCustom from './ServerTabCustom.jsx';
 import SessionStyles from './Session.module.css';
@@ -70,7 +69,6 @@ const Session = (props) => {
       setSavedServerParams,
       initFromSessionFile,
       setStateFromSessionFile,
-      setVisibleProviders,
       bindWindowClose,
       initFromQueryString,
       saveSessionAsFile,
@@ -80,7 +78,6 @@ const Session = (props) => {
         bindWindowClose();
         switchTabs(SESSION_BUILDER_TABS.CAPS_BUILDER);
         await getSavedSessions();
-        await setVisibleProviders();
         await setSavedServerParams();
         await setLocalServerParams();
         initFromQueryString(loadNewSession);
@@ -120,10 +117,6 @@ const Session = (props) => {
                   children: provider.tab(props),
                 };
               }),
-              {
-                label: <span className="addCloudProviderTab">{t('Select Cloud Providers')}</span>,
-                key: ADD_CLOUD_PROVIDER_TAB_KEY,
-              },
             ]}
           />
           <ToggleTheme {...props} />
@@ -206,7 +199,6 @@ const Session = (props) => {
         </div>
       </div>
     </Spin>,
-    <CloudProviderSelector {...props} key="CloudProviderSelector" />,
   ];
 };
 
