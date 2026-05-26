@@ -43,7 +43,7 @@ jobs:
               
           allowed_types = ["feat", "fix", "hotfix", "improvement", "breaking", "refactor", "chore", "docs", "test", "ci", "revert"]
           
-          pattern = r"^([a-z]+)(?:\(([^)]+)\))?(!?):\s+(.*)$"
+          pattern = r"^([a-zA-Z]+)(?:\(([^)]+)\))?(!?):\s+(.*)$"
           
           match = re.match(pattern, title)
           if not match:
@@ -54,7 +54,7 @@ jobs:
               
           pr_type, scope, breaking, summary = match.groups()
           
-          if pr_type not in allowed_types:
+          if pr_type.lower() not in allowed_types:
               print(f"❌ Error: Type '{pr_type}' is not allowed.")
               print(f"Allowed types are: {', '.join(allowed_types)}")
               sys.exit(1)
