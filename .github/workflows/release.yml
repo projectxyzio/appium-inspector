@@ -36,31 +36,12 @@ jobs:
             "plugins": [
               ["@semantic-release/commit-analyzer", {
                 "preset": "conventionalcommits",
-                "releaseRules": [
-                  {"type": "feat", "release": "minor"},
-                  {"type": "FEAT", "release": "minor"},
-                  {"type": "fix", "release": "minor"},
-                  {"type": "FIX", "release": "minor"},
-                  {"type": "hotfix", "release": "minor"},
-                  {"type": "HOTFIX", "release": "minor"},
-                  {"type": "improvement", "release": "minor"},
-                  {"type": "IMPROVEMENT", "release": "minor"},
+                 "releaseRules": [
+                  {"breaking": true, "release": "major"},
                   {"type": "breaking", "release": "major"},
                   {"type": "BREAKING", "release": "major"},
-                  {"type": "perf", "release": "minor"},
-                  {"type": "PERF", "release": "minor"},
-                  {"type": "refactor", "release": "minor"},
-                  {"type": "REFACTOR", "release": "minor"},
-                  {"type": "chore", "release": "minor"},
-                  {"type": "CHORE", "release": "minor"},
-                  {"type": "docs", "release": "minor"},
-                  {"type": "DOCS", "release": "minor"},
-                  {"type": "test", "release": "minor"},
-                  {"type": "TEST", "release": "minor"},
-                  {"type": "ci", "release": "minor"},
-                  {"type": "CI", "release": "minor"},
-                  {"type": "revert", "release": "minor"},
-                  {"type": "REVERT", "release": "minor"}
+                  {"type": "Breaking", "release": "major"},
+                  {"release": "minor"}
                 ]
               }],
               ["@semantic-release/release-notes-generator", { "preset": "conventionalcommits" }],
