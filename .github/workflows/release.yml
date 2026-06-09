@@ -64,7 +64,57 @@ jobs:
 
   trigger-orchestrator:
     needs: release
-    uses: projectxyzio/gh-actions/.github/workflows/semantic-orchestrator.yml@master
-    secrets:
-      SEMANTIC_RELEASE_PAT: ${{ secrets.SEMANTIC_RELEASE_PAT }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: semantic-release
+      cancel-in-progress: false
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - name: Checkout DevTools (For Script Location)
+        uses: actions/checkout@v4
+        with:
+          repository: projectxyzio/devtools
+          ref: master
+          path: headspin/devtools
+          fetch-depth: 0
+          token: ${{ secrets.SEMANTIC_RELEASE_PAT }}
+
+      - name: Clone Versions Repository
+        uses: actions/checkout@v4
+        with:
+          repository: projectxyzio/versions
+          path: headspin/versions
+          fetch-depth: 0
+          token: ${{ secrets.SEMANTIC_RELEASE_PAT }}
+          
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set HEADSPIN_HOME
+        run: |
+          echo "HEADSPIN_HOME=$GITHUB_WORKSPACE/headspin" >> $GITHUB_ENV
+
+      - name: Install Base Python Utilities
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install pathlib unicodecsv
+
+      - name: Install Python Requirements
+        run: |
+          pip install -r headspin/devtools/py3-requirements.txt
+          
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
+      - name: Run Semantic Release (hsrelease)
+        run: |
+          export PYTHONPATH="$GITHUB_WORKSPACE/headspin/devtools:$GITHUB_WORKSPACE/headspin:$PYTHONPATH"
+          python headspin/devtools/tools/hsrelease.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
