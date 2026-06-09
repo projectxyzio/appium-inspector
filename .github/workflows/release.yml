@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - PROD-14446
   workflow_dispatch:
 
 concurrency:
@@ -32,7 +33,7 @@ jobs:
         run: |
           cat << 'EOF' > .releaserc.json
           {
-            "branches": ["master"],
+            "branches": ["master","PROD-14446"],
             "plugins": [
               ["@semantic-release/commit-analyzer", {
                 "preset": "conventionalcommits",
