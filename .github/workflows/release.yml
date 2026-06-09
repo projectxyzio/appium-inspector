@@ -2,7 +2,7 @@ name: Semantic Release
 on:
   push:
     branches:
-      - master
+      - main
       - PROD-14446
   workflow_dispatch:
 
@@ -33,7 +33,7 @@ jobs:
         run: |
           cat << 'EOF' > .releaserc.json
           {
-            "branches": ["master","PROD-14446"],
+            "branches": ["main","PROD-14446"],
             "plugins": [
               ["@semantic-release/commit-analyzer", {
                 "preset": "conventionalcommits",
