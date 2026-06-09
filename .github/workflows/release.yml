@@ -34,6 +34,7 @@ jobs:
           cat << 'EOF' > .releaserc.json
           {
             "branches": ["main","PROD-14446"],
+            "repositoryUrl": "https://github.com/projectxyzio/appium-inspector.git",
             "plugins": [
               ["@semantic-release/commit-analyzer", {
                 "preset": "conventionalcommits",
