@@ -1,0 +1,31 @@
+name: Mirror to Internal
+
+on:
+  push:
+    branches:
+      - PROD-14446
+
+jobs:
+  mirror-and-trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Public Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Push to Private Mirror
+        env:
+          DESTINATION_REPO: https://x-access-token:${{ secrets.MIRROR_PAT }}@github.com/projectxyzio/appium-inspector-internal.git
+        run: |
+          git remote add mirror $DESTINATION_REPO
+          # This pushes the code to the private repo
+          git push mirror HEAD:refs/heads/${{ github.ref_name }} --force
+          
+      - name: Trigger Internal Release
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.MIRROR_PAT }}
+          repository: projectxyzio/appium-inspector-internal
+          event-type: mirror-push
+          client-payload: '{"branch": "${{ github.ref_name }}"}'
