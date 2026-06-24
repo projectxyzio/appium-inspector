@@ -69,7 +69,10 @@ jobs:
   trigger-orchestrator:
     needs: release
     if: github.repository == 'projectxyzio/appium-inspector-internal'
-    uses: projectxyzio/gh-actions/.github/workflows/semantic-orchestrator.yml@master
-    secrets:
-      SEMANTIC_RELEASE_PAT: ${{ secrets.SEMANTIC_RELEASE_PAT }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Orchestrator
+        env:
+          GH_TOKEN: ${{ secrets.SEMANTIC_RELEASE_PAT }}
+        run: |
+          gh workflow run semantic-orchestrator.yml --repo projectxyzio/gh-actions --ref master

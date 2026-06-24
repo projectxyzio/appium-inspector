@@ -17,7 +17,9 @@ jobs:
           fetch-depth: 0
 
       - name: Push to Private Mirror
+        env:
+          DESTINATION_REPO: https://x-access-token:${{ secrets.MIRROR_PAT }}@github.com/projectxyzio/appium-inspector-internal.git
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          git remote add private https://x-access-token:${{ secrets.MIRROR_PAT }}@github.com/projectxyzio/appium-inspector-internal.git
-          git push private HEAD:$BRANCH_NAME
+          git remote add private $DESTINATION_REPO
+          git push private HEAD:refs/heads/$BRANCH_NAME --force
