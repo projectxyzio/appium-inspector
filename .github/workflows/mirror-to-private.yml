@@ -3,7 +3,7 @@ name: Mirror to Private Repository
 on:
   push:
     branches:
-      - master
+      - main
       - PROD-14446
 
 jobs:
