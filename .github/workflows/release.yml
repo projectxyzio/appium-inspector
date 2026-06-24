@@ -34,6 +34,7 @@ jobs:
         run: |
           cat << 'EOF' > .releaserc.json
           {
+            "repositoryUrl": "https://github.com/${{ github.repository }}.git",
             "branches": ["main", "PROD-14446"],
             "plugins": [
               ["@semantic-release/commit-analyzer", {
@@ -57,7 +58,7 @@ jobs:
           EOF
 
       - name: Hide Legacy Tags from Semantic Release
-        run: git tag -d $(git tag -l "v201*") || true
+        run: git tag -d $(git tag -l "v20*") || true
 
       - name: Semantic Release
         env:
