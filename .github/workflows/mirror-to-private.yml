@@ -1,0 +1,23 @@
+name: Mirror to Private Repository
+
+on:
+  push:
+    branches:
+      - master
+      - PROD-14446
+
+jobs:
+  mirror:
+    if: github.repository == 'projectxyzio/appium-inspector'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Public Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Private Mirror
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          git remote add private https://x-access-token:${{ secrets.MIRROR_PAT }}@github.com/projectxyzio/appium-inspector-internal.git
+          git push private HEAD:$BRANCH_NAME
