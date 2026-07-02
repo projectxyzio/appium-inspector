@@ -1,0 +1,103 @@
+name: Verify Commits
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  verify-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify PR Title and Predict Version Bump
+        id: verify_commits
+        shell: python
+        run: |
+          import re
+          import sys
+          import os
+          
+          title = os.environ.get("PR_TITLE", "").strip()
+          
+          with open("pr_title.txt", "w") as f:
+              f.write(title + "\n")
+              
+          title_lower = title.lower()
+          bump = "Minor 🟡"
+          
+          if re.search(r"^[a-z]+(?:\([^)]+\))?!:", title_lower) or title_lower.startswith("breaking"):
+              bump = "Major 🔴"
+          elif title_lower.startswith("hotfix"):
+              bump = "Patch 🟢"
+              
+          print(f"Predicted bump: {bump}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"bump={bump}\n")
+              
+          allowed_types = ["feat", "fix", "hotfix", "improvement", "breaking", "refactor", "chore", "docs", "test", "ci", "revert"]
+          
+          pattern = r"^([a-zA-Z]+)(?:\(([^)]+)\))?(!?):\s+(.*)$"
+          
+          match = re.match(pattern, title)
+          if not match:
+              print("❌ Error: PR title does not follow the Conventional Commits format.")
+              print("Expected format: <type>(<scope>): <summary> OR <type>: <summary>")
+              print("Example: feat(auth): add OAuth2 login OR fix: prevent double-charge")
+              sys.exit(1)
+              
+          pr_type, scope, breaking, summary = match.groups()
+          
+          if pr_type.lower() not in allowed_types:
+              print(f"❌ Error: Type '{pr_type}' is not allowed.")
+              print(f"Allowed types are: {', '.join(allowed_types)}")
+              sys.exit(1)
+              
+          if not summary.strip():
+              print("❌ Error: The summary description cannot be empty.")
+              sys.exit(1)
+              
+          print("✅ PR Title verification passed!")
+          print(f"Type: {pr_type}")
+          print(f"Scope: {scope or 'None'}")
+          print(f"Breaking: {'Yes' if breaking else 'No'}")
+          print(f"Summary: {summary}")
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        continue-on-error: true
+
+      - name: Spell Check Commits (Typos)
+        id: check_typos
+        uses: crate-ci/typos@v1.20.4
+        with:
+          files: ./pr_title.txt
+        continue-on-error: true
+
+      - name: Leave PR Comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: semantic-checks
+          message: |
+            ### PR Title Conventions (Semantic Release Pilot)
+            
+            | Check | Status |
+            | :--- | :--- |
+            | **Conventional PR Title** | ${{ steps.verify_commits.outcome == 'success' && '✅ Passed' || '⚠️ Action Recommended' }} |
+            | **Title Spell Check** | ${{ steps.check_typos.outcome == 'success' && '✅ Passed' || '⚠️ Typos Found' }} |
+            | **Release Prediction** | ${{ steps.verify_commits.outputs.bump }} |
+            
+            ${{ steps.verify_commits.outcome != 'success' && '> **Note**: When this PR is squashed and merged, the PR Title becomes the final commit message. Please use the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format (e.g., `feat: description` or `fix: description`) for your PR Title. Allowed types = feat, fix, hotfix, improvement, breaking, refactor, chore, docs, test, ci, revert.' || '' }}
+
+      - name: Enforce Checks
+        if: always()
+        run: |
+          if [ "${{ steps.verify_commits.outcome }}" != "success" ]; then
+            echo "❌ PR Title verification failed. Please fix your PR title to match Conventional Commits format."
+            exit 1
+          fi

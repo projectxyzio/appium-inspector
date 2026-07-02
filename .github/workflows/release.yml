@@ -1,0 +1,75 @@
+name: Semantic Release
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  release:
+    name: Release
+    if: github.repository == 'projectxyzio/appium-inspector-internal'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Generate Semantic Release Config
+        run: |
+          cat << 'EOF' > .releaserc.json
+          {
+            "repositoryUrl": "https://github.com/${{ github.repository }}.git",
+            "branches": ["main"],
+            "plugins": [
+              ["@semantic-release/commit-analyzer", {
+                "preset": "conventionalcommits",
+                 "releaseRules": [
+                  {"breaking": true, "release": "major"},
+                  {"type": "breaking", "release": "major"},
+                  {"type": "BREAKING", "release": "major"},
+                  {"type": "Breaking", "release": "major"},
+                  {"release": "minor"}
+                ]
+              }],
+              ["@semantic-release/release-notes-generator", { "preset": "conventionalcommits" }],
+              ["@semantic-release/github", {
+                "successComment": false,
+                "failComment": false,
+                "failTitle": false
+              }]
+            ]
+          }
+          EOF
+
+      - name: Hide Legacy Tags from Semantic Release
+        run: git tag -d $(git tag -l "v20*") || true
+
+      - name: Semantic Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm install --no-save --ignore-scripts conventional-changelog-conventionalcommits
+          npx semantic-release
+
+  trigger-orchestrator:
+    needs: release
+    if: github.repository == 'projectxyzio/appium-inspector-internal'
+    uses: projectxyzio/gh-actions/.github/workflows/semantic-orchestrator.yml@master
+    secrets:
+      SEMANTIC_RELEASE_PAT: ${{ secrets.SEMANTIC_RELEASE_PAT }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
