@@ -1,5 +1,5 @@
 import {LinkOutlined} from '@ant-design/icons';
-import {Badge, Button, Spin, Tabs} from 'antd';
+import {Badge, Button, Divider, Spin, Tabs} from 'antd';
 import _ from 'lodash';
 import {useEffect} from 'react';
 import {useNavigate} from 'react-router';
@@ -20,6 +20,7 @@ import CloudProviders from './CloudProviders.jsx';
 import SavedSessions from './SavedSessions.jsx';
 import ServerTabCustom from './ServerTabCustom.jsx';
 import SessionStyles from './Session.module.css';
+import ToggleTheme from './ToggleTheme.jsx';
 
 const Session = (props) => {
   const {
@@ -94,7 +95,7 @@ const Session = (props) => {
   return [
     <Spin spinning={!!newSessionLoading} key="main">
       <div className={SessionStyles.sessionContainer}>
-        <div id="serverTypeTabs" className={SessionStyles.serverTab}>
+        <div className={SessionStyles.sessionHeader}>
           <Tabs
             activeKey={serverType}
             onChange={(tab) => handleSelectServerTab(tab)}
@@ -118,9 +119,9 @@ const Session = (props) => {
               }),
             ]}
           />
-          <AdvancedServerParams {...props} />
+          <ToggleTheme {...props} />
         </div>
-
+        <AdvancedServerParams {...props} />
         <Tabs
           activeKey={tabKey}
           onChange={switchTabs}
@@ -152,7 +153,7 @@ const Session = (props) => {
             },
           ]}
         />
-
+        <Divider />
         <div className={SessionStyles.sessionFooter}>
           <div className={SessionStyles.desiredCapsLink}>
             <a href="#" onClick={(e) => e.preventDefault() || openLink(LINKS.CAPS_DOCS)}>

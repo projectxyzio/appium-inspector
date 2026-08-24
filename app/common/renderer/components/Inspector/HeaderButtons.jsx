@@ -10,7 +10,7 @@ import {
   SearchOutlined,
   VideoCameraOutlined,
 } from '@ant-design/icons';
-import {Button, Select, Space, Tooltip} from 'antd';
+import {Button, Divider, Select, Space, Tooltip} from 'antd';
 import {BiCircle, BiSquare} from 'react-icons/bi';
 import {HiOutlineHome, HiOutlineMicrophone} from 'react-icons/hi';
 import {IoChevronBackOutline} from 'react-icons/io5';
@@ -43,7 +43,7 @@ const HeaderButtons = (props) => {
   } = props;
 
   const deviceControls = (
-    <Button.Group>
+    <Space.Compact>
       {driver && driver.client.isIOS && (
         <>
           <Tooltip title={t('Press Home Button')}>
@@ -73,30 +73,45 @@ const HeaderButtons = (props) => {
             <Button
               id="btnPressHomeButton"
               icon={<IoChevronBackOutline className={InspectorStyles['custom-button-icon']} />}
-              onClick={() => applyClientMethod({methodName: 'pressKeyCode', args: [4]})}
+              onClick={() =>
+                applyClientMethod({
+                  methodName: 'executeScript',
+                  args: ['mobile:pressKey', [{keycode: 4}]],
+                })
+              }
             />
           </Tooltip>
           <Tooltip title={t('Press Home Button')}>
             <Button
               id="btnPressHomeButton"
               icon={<BiCircle className={InspectorStyles['custom-button-icon']} />}
-              onClick={() => applyClientMethod({methodName: 'pressKeyCode', args: [3]})}
+              onClick={() =>
+                applyClientMethod({
+                  methodName: 'executeScript',
+                  args: ['mobile:pressKey', [{keycode: 3}]],
+                })
+              }
             />
           </Tooltip>
           <Tooltip title={t('Press App Switch Button')}>
             <Button
               id="btnPressHomeButton"
               icon={<BiSquare className={InspectorStyles['custom-button-icon']} />}
-              onClick={() => applyClientMethod({methodName: 'pressKeyCode', args: [187]})}
+              onClick={() =>
+                applyClientMethod({
+                  methodName: 'executeScript',
+                  args: ['mobile:pressKey', [{keycode: 187}]],
+                })
+              }
             />
           </Tooltip>
         </>
       )}
-    </Button.Group>
+    </Space.Compact>
   );
 
   const appModeControls = (
-    <Button.Group value={appMode}>
+    <Space.Compact>
       <Tooltip title={t('Native App Mode')}>
         <Button
           icon={<AppstoreOutlined />}
@@ -114,7 +129,7 @@ const HeaderButtons = (props) => {
       {contexts && contexts.length === 1 && (
         <Tooltip
           title={t('noAdditionalContextsFound')}
-          overlayClassName={InspectorStyles['wide-tooltip']}
+          classNames={{root: InspectorStyles['wide-tooltip']}}
         >
           <div
             className={`${InspectorStyles['contexts-custom-btn']} ${InspectorStyles['no-contexts-info-icon']}`}
@@ -128,7 +143,7 @@ const HeaderButtons = (props) => {
           <Select
             className={InspectorStyles['header-context-selector']}
             value={currentContext}
-            dropdownMatchSelectWidth={false}
+            popupMatchSelectWidth={false}
             onChange={(value) => {
               setContext(value);
               applyClientMethod({methodName: 'switchContext', args: [value]});
@@ -149,7 +164,7 @@ const HeaderButtons = (props) => {
                 </a>
               </>
             }
-            overlayClassName={InspectorStyles['wide-tooltip']}
+            classNames={{root: InspectorStyles['wide-tooltip']}}
           >
             <div
               className={`${InspectorStyles['contexts-custom-btn']} ${InspectorStyles['contexts-info-icon']}`}
@@ -159,11 +174,11 @@ const HeaderButtons = (props) => {
           </Tooltip>
         </>
       )}
-    </Button.Group>
+    </Space.Compact>
   );
 
   const generalControls = (
-    <Button.Group>
+    <Space.Compact>
       {isUsingMjpegMode && !isSourceRefreshOn && (
         <Tooltip title={t('Start Refreshing Source')}>
           <Button
@@ -202,12 +217,13 @@ const HeaderButtons = (props) => {
           <Button
             id="btnPause"
             icon={<VideoCameraOutlined />}
-            type={BUTTON.DANGER}
+            type={BUTTON.PRIMARY}
+            danger
             onClick={pauseRecording}
           />
         </Tooltip>
       )}
-    </Button.Group>
+    </Space.Compact>
   );
 
   const quitSessionButton = (
@@ -224,6 +240,7 @@ const HeaderButtons = (props) => {
         {generalControls}
         {quitSessionButton}
       </Space>
+      <Divider />
     </div>
   );
 };

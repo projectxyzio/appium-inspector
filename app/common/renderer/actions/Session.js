@@ -1,4 +1,3 @@
-import {notification} from 'antd';
 import _ from 'lodash';
 import {Web2Driver} from 'web2driver';
 
@@ -17,6 +16,7 @@ import {getSetting, ipcRenderer, setSetting} from '../polyfills';
 import {fetchSessionInformation, formatSeleniumGridSessions} from '../utils/attaching-to-session';
 import {downloadFile, parseSessionFileContents} from '../utils/file-handling';
 import {log} from '../utils/logger';
+import {notification} from '../utils/notification';
 import {addVendorPrefixes} from '../utils/other';
 import {quitSession, setSessionDetails} from './Inspector';
 
@@ -133,7 +133,7 @@ export function showError(e, params = {methodName: null, secs: 5, url: null}) {
     try {
       e.data = JSON.parse(e.data);
     } catch {}
-    if (e.data.value && e.data.value.message) {
+    if (e.data.value?.message) {
       errMessage = e.data.value.message;
     } else {
       errMessage = e.data;
@@ -225,28 +225,18 @@ export function newSession(originalCaps, attachSessId = null) {
 
     let sessionCaps = prefixedCaps ? getCapsObject(prefixedCaps) : {};
     sessionCaps = addCustomCaps(sessionCaps);
-    let host, port, username, accessKey, https, path, headers;
-    //
-    // To register a new session vendor:
-    // - Implement a new class inherited from VendorBase in app/common/renderer/lib/vendor/<vendor_name>.js
-    // - Add the newly created class to the VENDOR_MAP defined in app/common/renderer/lib/vendor/map.js
-    //
-    /** @type {(new (server: unknown, caps: Record<string, any>) => import('../lib/vendor/base.js').BaseVendor) | undefined} */
-    const VendorClass = VENDOR_MAP[session.serverType];
-    if (VendorClass) {
-      log.info(`Using ${VendorClass.name}`);
-      try {
-        const vendor = new VendorClass(session.server, sessionCaps);
-        ({host, port, username, accessKey, https, path, headers} = await vendor.apply());
-      } catch (e) {
-        showError(e);
-        return false;
-      }
-    } else {
-      log.info(
-        `No vendor mapping is defined for the server type '${session.serverType}'. Using defaults`,
-      );
+
+    const vendorProperties = await retrieveVendorProperties({
+      server: session.server,
+      serverType: session.serverType,
+      sessionCaps,
+    });
+
+    if (!vendorProperties) {
+      return false;
     }
+
+    let {host, port, username, accessKey, https, path, headers} = vendorProperties;
 
     // if the server path is '' (or any other kind of falsy) set it to default
     path = path || DEFAULT_SERVER_PATH;
@@ -280,7 +270,7 @@ export function newSession(originalCaps, attachSessId = null) {
     }
 
     // If a newCommandTimeout wasn't provided, set it to 60 * 60 so that sessions don't close on users in short term.
-    // I saw sometimes infinit session timeout was not so good for cloud providers.
+    // I saw sometimes infinite session timeout was not so good for cloud providers.
     // So, let me define this value as NEW_COMMAND_TIMEOUT_SEC by default.
     if (_.isUndefined(sessionCaps[CAPS_NEW_COMMAND])) {
       sessionCaps[CAPS_NEW_COMMAND] = NEW_COMMAND_TIMEOUT_SEC;
@@ -320,7 +310,11 @@ export function newSession(originalCaps, attachSessId = null) {
         } else {
           try {
             const detailsUrl = `${serverUrl}/session/${attachSessId}`;
-            const res = await fetchSessionInformation({url: detailsUrl, timeout: CONN_TIMEOUT});
+            const res = await fetchSessionInformation({
+              url: detailsUrl,
+              headers,
+              timeout: CONN_TIMEOUT,
+            });
             attachedSessionCaps = res.data.value;
           } catch (err) {
             // rethrow the error as session not running, but first log the original error to console
@@ -338,7 +332,7 @@ export function newSession(originalCaps, attachSessId = null) {
         driver = await Web2Driver.remote(serverOpts, sessionCaps);
       }
     } catch (err) {
-      showError(err, {secs: 0, serverUrl});
+      showError(err, {secs: 0, url: serverUrl});
       return false;
     } finally {
       dispatch({type: NEW_SESSION_DONE});
@@ -608,7 +602,7 @@ export function setSavedServerParams() {
 export function initFromSessionFile() {
   return async (dispatch) => {
     const lastArg = process.argv[process.argv.length - 1];
-    if (!lastArg.startsWith('filename=')) {
+    if (!lastArg?.startsWith('filename=')) {
       return null;
     }
     const filePath = lastArg.split('=')[1];
@@ -657,6 +651,34 @@ export function saveSessionAsFile() {
 }
 
 /**
+ * @returns {Promise<VendorProperties | false | {}>}
+ */
+async function retrieveVendorProperties({server, serverType, sessionCaps}) {
+  //
+  // To register a new session vendor:
+  // - Implement a new class inherited from VendorBase in app/common/renderer/lib/vendor/<vendor_name>.js
+  // - Add the newly created class to the VENDOR_MAP defined in app/common/renderer/lib/vendor/map.js
+  //
+  const VendorClass = VENDOR_MAP[serverType];
+
+  if (!VendorClass) {
+    log.info(`No vendor mapping is defined for the server type '${serverType}'. Using defaults`);
+
+    return {};
+  }
+
+  log.info(`Using ${VendorClass.name}`);
+
+  try {
+    const vendor = new VendorClass(server, sessionCaps);
+    return await vendor.apply();
+  } catch (e) {
+    showError(e);
+    return false;
+  }
+}
+
+/**
  * Retrieve all running sessions for the currently configured server details
  */
 export function getRunningSessions() {
@@ -664,19 +686,38 @@ export function getRunningSessions() {
     const avoidServerTypes = ['sauce'];
     const state = getState().session;
     const {server, serverType, attachSessId} = state;
-    let {hostname, port, path, ssl, username, accessKey} = server[serverType];
-    const authToken = username && accessKey ? btoa(`${username}:${accessKey}`) : null;
+    const vendorProperties = await retrieveVendorProperties({
+      server,
+      serverType,
+      sessionCaps: {},
+    });
+
+    if (!vendorProperties) {
+      return;
+    }
+
+    let {path, host, port, username, accessKey, https, headers} = vendorProperties;
+
+    if (username && accessKey) {
+      const authToken = btoa(`${username}:${accessKey}`);
+
+      headers = {
+        ...headers,
+        Authorization: `Basic ${authToken}`,
+      };
+    }
 
     // if we have a standard remote server, fill out connection info based on placeholder defaults
     // in case the user hasn't adjusted those fields
     if (serverType === SERVER_TYPES.REMOTE) {
-      hostname = hostname || DEFAULT_SERVER_HOST;
+      host = host || DEFAULT_SERVER_HOST;
       port = port || DEFAULT_SERVER_PORT;
       path = path || DEFAULT_SERVER_PATH;
     }
 
     // no need to get sessions if we don't have complete server info
-    if (!hostname || !port || !path) {
+    if (!host || !port || !path) {
+      showError(new Error(i18n.t('missingServerInfo')));
       return;
     }
 
@@ -686,9 +727,10 @@ export function getRunningSessions() {
       return;
     }
 
+    const protocol = https ? 'https' : 'http';
     const adjPath = path.endsWith('/') ? path : `${path}/`;
-    const baseUrl = `http${ssl ? 's' : ''}://${hostname}:${port}${adjPath}`;
-    const sessions = await fetchAllSessions(baseUrl, authToken);
+    const baseUrl = `${protocol}://${host}:${port}${adjPath}`;
+    const sessions = await fetchAllSessions(baseUrl, headers);
     dispatch({type: GET_SESSIONS_DONE, sessions});
 
     // set attachSessId if only one session found
@@ -704,14 +746,14 @@ export function getRunningSessions() {
   };
 }
 
-async function fetchAllSessions(baseUrl, authToken) {
+async function fetchAllSessions(baseUrl, headers) {
   const appiumSessionsEndpoint = `${baseUrl}appium/sessions`; // Appium 3+
   const oldAppiumSessionsEndpoint = `${baseUrl}sessions`; // Appium 1-2
   const seleniumSessionsEndpoint = `${baseUrl}status`;
 
   async function fetchSessionsFromEndpoint(url) {
     try {
-      const res = await fetchSessionInformation({url, authToken});
+      const res = await fetchSessionInformation({url, headers});
       return url === seleniumSessionsEndpoint
         ? formatSeleniumGridSessions(res)
         : (res.data.value ?? []);

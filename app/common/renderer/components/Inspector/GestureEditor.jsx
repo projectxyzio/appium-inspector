@@ -9,14 +9,13 @@ import {
   RightCircleOutlined,
   UpCircleOutlined,
 } from '@ant-design/icons';
+import {PageHeader} from '@ant-design/pro-components';
 import {
   Button,
   Card,
   Col,
   Divider,
   Input,
-  notification,
-  PageHeader,
   Popover,
   Row,
   Select,
@@ -42,6 +41,7 @@ import {
   TICK_PROPS,
 } from '../../constants/gestures';
 import {SCREENSHOT_INTERACTION_MODE} from '../../constants/screenshot';
+import {notification} from '../../utils/notification';
 import {percentageToPixels, pixelsToPercentage} from '../../utils/other';
 import InspectorCSS from './Inspector.module.css';
 
@@ -395,7 +395,7 @@ const GestureEditor = (props) => {
 
   const headerButtons = (
     <>
-      <Button.Group>
+      <Space.Compact>
         <Tooltip title={t('showMoveActionCoordsInPercentage')}>
           <Button
             className={InspectorCSS['gesture-header-coord-btn']}
@@ -422,7 +422,7 @@ const GestureEditor = (props) => {
             px
           </Button>
         </Tooltip>
-      </Button.Group>
+      </Space.Compact>
       <Tooltip title={t('Play')}>
         <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => onPlay()} />
       </Tooltip>
@@ -532,7 +532,7 @@ const GestureEditor = (props) => {
 
   const tickButton = (tick) => (
     <center>
-      <Button.Group className={InspectorCSS['tick-button-group']}>
+      <Space.Compact className={InspectorCSS['tick-button-group']}>
         <Button
           type={tick.button === POINTER_DOWN_BTNS.LEFT ? 'primary' : 'default'}
           className={InspectorCSS['tick-button-input']}
@@ -547,7 +547,7 @@ const GestureEditor = (props) => {
         >
           {t('Right')}
         </Button>
-      </Button.Group>
+      </Space.Compact>
     </center>
   );
 
@@ -593,7 +593,7 @@ const GestureEditor = (props) => {
         value={tick.type}
         defaultValue={tick.type}
         size="middle"
-        dropdownMatchSelectWidth={false}
+        popupMatchSelectWidth={false}
         onChange={(e) => updateTick(tick, TICK_PROPS.POINTER_TYPE, e)}
       >
         <Select.Option className={InspectorCSS['option-inpt']} value={POINTER_MOVE}>
@@ -658,7 +658,7 @@ const GestureEditor = (props) => {
         </Col>
       ))}
       <Col xs={12} sm={12} md={12} lg={8} xl={6} xxl={4}>
-        <Card className={InspectorCSS['tick-plus-card']} bordered={false}>
+        <Card className={InspectorCSS['tick-plus-card']} variant="borderless">
           <center>
             <Tooltip title={t('Add')}>
               <Button
@@ -684,7 +684,7 @@ const GestureEditor = (props) => {
           }}
           value={pointer.name}
           defaultValue={pointer.name}
-          bordered={false}
+          variant="borderless"
           maxLength={10}
           onChange={(e) => updatePointerName(e.target.value, index)}
         />

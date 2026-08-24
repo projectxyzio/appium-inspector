@@ -120,7 +120,7 @@ const SavedGestures = (props) => {
         render: (_, record) => {
           const gesture = getGestureByID(savedGestures, record.key, t);
           return (
-            <Button.Group>
+            <Space.Compact>
               <Tooltip zIndex={3} title={t('Play')}>
                 <Button
                   key="play"
@@ -147,7 +147,7 @@ const SavedGestures = (props) => {
                   <Button icon={<DeleteOutlined />} />
                 </Popconfirm>
               </Tooltip>
-            </Button.Group>
+            </Space.Compact>
           );
         },
       };
@@ -175,17 +175,21 @@ const SavedGestures = (props) => {
       <p>
         <i>{t('unableToUploadGestureFiles')}</i>
       </p>
-      <Collapse ghost defaultActiveKey={Object.keys(gestureUploadErrors)}>
-        {Object.keys(gestureUploadErrors).map((errorFile) => (
-          <Collapse.Panel header={<b>{errorFile}</b>} key={errorFile}>
+      <Collapse
+        ghost
+        defaultActiveKey={Object.keys(gestureUploadErrors)}
+        items={Object.keys(gestureUploadErrors).map((errorFile) => ({
+          key: errorFile,
+          label: <b>{errorFile}</b>,
+          children: (
             <ol>
               {gestureUploadErrors[errorFile].map((error, index) => (
                 <li key={errorFile + index.toString()}>{error}</li>
               ))}
             </ol>
-          </Collapse.Panel>
-        ))}
-      </Collapse>
+          ),
+        }))}
+      />
     </Modal>
   );
 
@@ -203,7 +207,7 @@ const SavedGestures = (props) => {
         columns={columns}
         scroll={{y: 'calc(100vh - 32em)'}}
         footer={() => (
-          <Button.Group>
+          <Space.Compact>
             <Tooltip title={t('Create New Gesture')}>
               <Button onClick={showGestureEditor} icon={<PlusOutlined />} />
             </Tooltip>
@@ -213,7 +217,7 @@ const SavedGestures = (props) => {
               multiple={true}
               type="application/json"
             />
-          </Button.Group>
+          </Space.Compact>
         )}
       />
       {gestureUploadErrors && showGestureUploadErrorsModal()}

@@ -12,15 +12,9 @@ export default defineConfig({
     target: 'es2022',
   },
   define: {
-    'process.env': process.env,
-  },
-  css: {
-    preprocessorOptions: {
-      less: {
-        javascriptEnabled: true,
-        additionalData: '@root-entry-name: default;',
-      },
-    },
+    // add empty polyfills for some Node.js primitives
+    'process.argv': [],
+    'process.env': {},
   },
   plugins: [react()],
   resolve: {

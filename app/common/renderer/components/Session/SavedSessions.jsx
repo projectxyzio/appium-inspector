@@ -1,5 +1,5 @@
 import {DeleteOutlined, EditOutlined} from '@ant-design/icons';
-import {Button, Col, Popconfirm, Row, Table, Tooltip} from 'antd';
+import {Button, Card, Col, Popconfirm, Row, Space, Table, Tooltip} from 'antd';
 import moment from 'moment';
 
 import {SAVED_SESSIONS_TABLE_VALUES, SESSION_BUILDER_TABS} from '../../constants/session-builder';
@@ -77,7 +77,7 @@ const SavedSessions = (props) => {
       key: 'action',
       width: SAVED_SESSIONS_TABLE_VALUES.ACTIONS_COLUMN_WIDTH,
       render: (_, record) => (
-        <Button.Group>
+        <Space.Compact>
           <Tooltip zIndex={3} title={t('Edit')}>
             <Button
               icon={<EditOutlined />}
@@ -98,7 +98,7 @@ const SavedSessions = (props) => {
               <Button icon={<DeleteOutlined />} />
             </Popconfirm>
           </Tooltip>
-        </Button.Group>
+        </Space.Compact>
       ),
     },
   ];
@@ -106,14 +106,21 @@ const SavedSessions = (props) => {
   return (
     <Row className={SessionStyles.savedSessions}>
       <Col span={12}>
-        <Table
-          pagination={false}
-          sticky={true}
-          dataSource={dataSource(savedSessions, t)}
-          columns={columns}
-          onRow={(row) => ({onClick: () => handleCapsAndServer(row.key)})}
-          rowClassName={(row) => (capsUUID === row.key ? SessionStyles.selected : '')}
-        />
+        <Card className={SessionStyles.savedCaps}>
+          <Table
+            pagination={false}
+            sticky={true}
+            dataSource={dataSource(savedSessions, t)}
+            columns={columns}
+            onRow={(row) => ({onClick: () => handleCapsAndServer(row.key)})}
+            rowSelection={{
+              selectedRowKeys: [capsUUID],
+              hideSelectAll: true,
+              columnWidth: 0,
+              renderCell: () => null,
+            }}
+          />
+        </Card>
       </Col>
       <Col span={12} className={SessionStyles.capsFormattedCol}>
         <FormattedCaps

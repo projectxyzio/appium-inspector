@@ -7,9 +7,12 @@
   width: 100%;
   height: 100%;
   padding: 1em;
-  background: linear-gradient(180deg, #f9f9f9, #f2f2f2, 5%, #f2f2f2, 95%, #d9d9d9);
   display: flex;
   flex-flow: column;
+}
+
+.sessionContainer :global(.ant-divider-horizontal) {
+  margin: 0px;
 }
 
 .sessionContainer :global(.ant-tabs-tab .anticon.anticon-close-square) {
@@ -38,7 +41,14 @@
 .cloudProviderModal :global(.ant-modal-body button img) {
   height: 100%;
 }
+
+.sessionHeader {
+  display: flex;
+  justify-content: space-between;
+}
+
 .sessionFooter {
+  margin-top: 15px;
   text-align: right;
   height: 30px;
 }
@@ -58,6 +68,8 @@
 
 .serverTabs {
   padding-bottom: 8px;
+  flex: 1;
+  max-width: 95%;
 }
 
 .serverTabs :global(.ant-tabs-bar) {
@@ -82,8 +94,6 @@
 }
 
 .scrollingTabCont {
-  border-bottom: 1px solid #d9d9d9;
-  margin-bottom: 15px;
   margin-top: 15px;
   flex-grow: 1;
   display: flex;
@@ -109,8 +119,8 @@
   width: 0px;
 }
 
-:global(.ant-badge-count) {
-  background-color: #1890ff;
+.toggleTheme {
+  padding: 5px;
 }
 
 .savedSessions,
@@ -149,10 +159,17 @@
   padding-left: 12px;
 }
 
+.savedCaps,
 .formattedCaps,
 .formattedCapsBody {
   height: 100%;
 }
+
+.savedCaps :global(.ant-card-body) {
+  height: 100%;
+  padding: 0;
+}
+
 .formattedCaps :global(.ant-row) {
   width: 100%;
 }
@@ -225,10 +242,6 @@
   padding: 6px 8px 0 8px;
 }
 
-.selected {
-  background-color: #d6e8ff;
-}
-
 .capsNameEditorButton {
   margin: 0 8px 0 0;
   padding: 0;
@@ -238,6 +251,7 @@
   position: absolute;
   right: 0;
   padding: 28px;
+  z-index: 1;
 }
 
 .capsEditorButton {
@@ -262,17 +276,17 @@
   width: 100%;
   padding: 0;
   margin: -1px;
-  resize: none;
-  border-color: lightgray;
+  resize: none !important;
   font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-size: 1em;
 }
 
 .capsEditorBodyFull {
-  height: 100%;
+  height: 100% !important;
 }
 
 .capsEditorBodyResized {
-  height: calc(100% - 40px);
+  height: calc(100% - 40px) !important;
 }
 
 .advancedSettingsContainerCol {
@@ -302,7 +316,6 @@
 
 .addonDataCenter {
   height: 32px;
-  border-right: 1px solid #d9d9d9 !important;
 }
 
 .addonDataCenterRadioContainer {

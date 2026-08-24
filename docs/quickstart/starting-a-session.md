@@ -23,19 +23,12 @@ information about the Appium server is specified, so that the Inspector knows ho
 - If you wish to connect to a standalone local or remote Appium server, first make sure the server
   is launched and running. The start of the server log will have a list of IP addresses and ports
   that can be used to connect to the server.
-
     - For a local Appium server running on its default port, **all server details fields can be left
       unchanged**. By default, the Inspector will attempt to connect to `http://127.0.0.1:4723`,
       which matches the default values of the Appium server.
 
     - For a local or remote Appium server with non-default properties, please change the field
       values accordingly.
-
-!!! note
-
-    The above assumes that you are using Appium 2. If using Appium 1, the _Remote Path_ value
-    must be changed to `/wd/hub`. This may also apply to an Appium 2 server, if it was launched
-    with the `--base-path="/wd/hub"` argument.
 
 With the server details specified, you can move on to the session details!
 
